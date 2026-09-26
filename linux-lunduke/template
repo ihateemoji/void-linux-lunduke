@@ -1,15 +1,14 @@
 # Template file for 'linux-lunduke'
-# Lunduke's rust-free Linux kernel (https://github.com/BryanLunduke/lunduke-linux-kernel)
+# Lunduke's rust-free kernel (https://github.com/BryanLunduke/lunduke-linux-kernel)
 pkgname=linux-lunduke
 version=7.2.6
 revision=1
 short_desc="Lunduke's rust-free Linux kernel and modules (${version})"
-maintainer="Orphaned <orphan@voidlinux.org>"
 license="GPL-2.0-only"
 homepage="https://github.com/BryanLunduke/lunduke-linux-kernel"
 changelog="https://github.com/BryanLunduke/lunduke-linux-kernel"
 
-# Same source layout Void uses for the 7.2 series (base tarball + stable patch)
+# Same source layout Void uses for the 7.2 series
 distfiles="${KERNEL_SITE}/kernel/v${version%%.*}.x/linux-${version%.*}.tar.xz
  ${KERNEL_SITE}/kernel/v${version%%.*}.x/patch-${version}.xz"
 skip_extraction="patch-${version}.xz"
@@ -18,7 +17,7 @@ checksum="f9fef3d14c0df53819026f4be74459835c2a0b0dcbf5b5bbd9ea19f0829402b3
 
 python_version=3
 
-# Only x86_64 config is published by Lunduke
+# Currently only x86_64 config is published by Lunduke
 archs="x86_64*"
 
 nodebug=yes
@@ -30,7 +29,8 @@ preserve=yes
 hostmakedepends="tar xz bc elfutils-devel flex gmp-devel kmod libmpc-devel
  pkg-config openssl-devel perl uboot-mkimage cpio pahole python3 zstd"
 
-# Matches Lunduke's published ABI: 7.2.6-lunduke
+# Kernel release string that appears in /lib/modules and /boot
+# Matches Lunduke’s published ABI: 7.2.6-lunduke
 _kernver="${version}-lunduke"
 triggers="kernel-hooks"
 kernel_hooks_version="${_kernver}"
@@ -147,8 +147,7 @@ do_install() {
 	mkdir -p ${hdrdest}/arch/${arch}
 	cp -a arch/${arch}/include ${hdrdest}/arch/${arch}
 
-	# sign-file is only built when CONFIG_MODULE_SIG=y (disabled in Lunduke config)
-	if [ -x scripts/sign-file ]; then
+    if [ -x scripts/sign-file ]; then
 		cp scripts/sign-file "${XBPS_WRAPPERDIR}"
 	fi
 
@@ -203,22 +202,22 @@ do_install() {
 	mkdir -p ${hdrdest}/tools/objtool
 	cp tools/objtool/objtool ${hdrdest}/tools/objtool
 
-	# Extract debug info + compress modules
-	msg_normal "$pkgver: extracting debug info and compressing modules…\n"
+	# Extract debug info + compress modules (same as official Void kernels)
+	msg_normal "$pkgver: extracting debug info and compressing modules, please wait...\n"
 	install -Dm644 vmlinux ${DESTDIR}/usr/lib/debug/boot/vmlinux-${_kernver}
 	(
-		cd ${DESTDIR}
-		export DESTDIR
-		if [ -x "${XBPS_WRAPPERDIR}/sign-file" ]; then
-			export SIGN_FILE="${XBPS_WRAPPERDIR}/sign-file sha512 ${wrksrc}/certs/signing_key.pem ${wrksrc}/certs/signing_key.x509"
-		else
-			# no-op when module signing is disabled (Lunduke config)
-			export SIGN_FILE="true"
-		fi
-		find ./ -name '*.ko' -print0 |
-			xargs -0r -n1 -P ${XBPS_MAKEJOBS} ${FILESDIR}/mv-debug
+	cd ${DESTDIR}
+	export DESTDIR
+	if [ -x "${XBPS_WRAPPERDIR}/sign-file" ]; then
+		export SIGN_FILE="${XBPS_WRAPPERDIR}/sign-file sha512 ${wrksrc}/certs/signing_key.pem ${wrksrc}/certs/signing_key.x509"
+	else
+		# no-op when module signing is disabled
+		export SIGN_FILE="true"
+	fi
+	find ./ -name '*.ko' -print0 | \
+		xargs -0r -n1 -P ${XBPS_MAKEJOBS} ${FILESDIR}/mv-debug
 	)
-	depmod -b ${DESTDIR}/usr -F System.map ${_kernver}
+    depmod -b ${DESTDIR}/usr -F System.map ${_kernver}
 	rm -f ${DESTDIR}/lib
 }
 
