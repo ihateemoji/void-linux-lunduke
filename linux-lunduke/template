@@ -1,0 +1,250 @@
+# Template file for 'linux-lunduke'
+# Lunduke's rust-free Linux kernel (https://github.com/BryanLunduke/lunduke-linux-kernel)
+pkgname=linux-lunduke
+version=7.2.6
+revision=1
+short_desc="Lunduke's rust-free Linux kernel and modules (${version})"
+maintainer="Orphaned <orphan@voidlinux.org>"
+license="GPL-2.0-only"
+homepage="https://github.com/BryanLunduke/lunduke-linux-kernel"
+changelog="https://github.com/BryanLunduke/lunduke-linux-kernel"
+
+# Same source layout Void uses for the 7.2 series (base tarball + stable patch)
+distfiles="${KERNEL_SITE}/kernel/v${version%%.*}.x/linux-${version%.*}.tar.xz
+ ${KERNEL_SITE}/kernel/v${version%%.*}.x/patch-${version}.xz"
+skip_extraction="patch-${version}.xz"
+checksum="f9fef3d14c0df53819026f4be74459835c2a0b0dcbf5b5bbd9ea19f0829402b3
+ 2aef3c30a571ed806c69e90428b229409a43c235aa2540a24593b7e7a8b126cf"
+
+python_version=3
+
+# Only x86_64 config is published by Lunduke
+archs="x86_64*"
+
+nodebug=yes
+nostrip=yes
+noverifyrdeps=yes
+noshlibprovides=yes
+preserve=yes
+
+hostmakedepends="tar xz bc elfutils-devel flex gmp-devel kmod libmpc-devel
+ pkg-config openssl-devel perl uboot-mkimage cpio pahole python3 zstd"
+
+# Matches Lunduke's published ABI: 7.2.6-lunduke
+_kernver="${version}-lunduke"
+triggers="kernel-hooks"
+kernel_hooks_version="${_kernver}"
+
+# Files that external modules (dkms, nvidia, …) may rewrite
+mutable_files="
+ /usr/lib/modules/${_kernver}/modules.builtin.bin
+ /usr/lib/modules/${_kernver}/modules.builtin.alias.bin
+ /usr/lib/modules/${_kernver}/modules.softdep
+ /usr/lib/modules/${_kernver}/modules.dep
+ /usr/lib/modules/${_kernver}/modules.dep.bin
+ /usr/lib/modules/${_kernver}/modules.symbols
+ /usr/lib/modules/${_kernver}/modules.symbols.bin
+ /usr/lib/modules/${_kernver}/modules.alias
+ /usr/lib/modules/${_kernver}/modules.alias.bin
+ /usr/lib/modules/${_kernver}/modules.devname"
+
+# Reproducible build
+export KBUILD_BUILD_TIMESTAMP=$(LC_ALL=C date -ud @${SOURCE_DATE_EPOCH:-0})
+export KBUILD_BUILD_USER=voidlinux
+export KBUILD_BUILD_HOST=voidlinux
+
+if [ "$CROSS_BUILD" ]; then
+	_cross="CROSS_COMPILE=${XBPS_CROSS_TRIPLET}-"
+fi
+
+post_extract() {
+	# Apply the stable patch (same as official Void kernels)
+	if [ -f $XBPS_SRCDISTDIR/$pkgname-$version/patch-${version}.xz ]; then
+		xzcat $XBPS_SRCDISTDIR/$pkgname-$version/patch-${version}.xz |
+			patch -sNp1 -F0
+	fi
+}
+
+post_patch() {
+	# Same work-arounds Void applies
+	vsed -e "s|\$(STRIP) \(--strip-debug -o \$@ \$<;\)|/usr/bin/${STRIP} \1|" \
+		-i drivers/firmware/efi/libstub/Makefile
+	vsed -i "s/\(\$(pahole-flags-y)\)/\1 --jobs=1/" -i scripts/Makefile.btf
+}
+
+do_configure() {
+	local arch=x86_64
+
+	# Use the Lunduke-provided config (x86_64 only for now)
+	if [ -f ${FILESDIR}/x86_64-dotconfig ]; then
+		msg_normal "Using Lunduke's rust-free config (lcos7).\n"
+		cp -f ${FILESDIR}/x86_64-dotconfig .config
+	else
+		msg_error "Missing ${FILESDIR}/x86_64-dotconfig\n"
+	fi
+
+	# Force the published LOCALVERSION and keep Rust disabled
+	scripts/config --set-str LOCALVERSION "-lunduke"
+	scripts/config --disable RUST 2>/dev/null || true
+
+	make ARCH=$arch ${_cross} olddefconfig
+}
+
+do_build() {
+	local arch=x86_64
+	export LDFLAGS=
+	export KCFLAGS="-ffile-prefix-map=$wrksrc=."
+	make ARCH=$arch ${_cross} ${makejobs} prepare
+	make ARCH=$arch ${_cross} ${makejobs} bzImage modules
+}
+
+do_install() {
+	local arch=x86
+	local subarch=x86_64
+	local hdrdest=${DESTDIR}/usr/src/kernel-headers-${_kernver}
+
+	# Make depmod a no-op; we run it ourselves after compression
+	sed -i '2iexit 0' scripts/depmod.sh
+	vmkdir usr/lib
+	ln -sf usr/lib/ ${DESTDIR}
+
+	make ${makejobs} ARCH=${subarch} INSTALL_MOD_PATH=${DESTDIR} ${_cross} modules_install
+
+	vinstall .config 644 boot config-${_kernver}
+	vinstall System.map 644 boot System.map-${_kernver}
+	vinstall arch/x86/boot/bzImage 644 boot vmlinuz-${_kernver}
+
+	vmkdir usr
+	cd ${DESTDIR}/usr/lib/modules/${_kernver}
+	rm -f source build
+	ln -sf ../../../src/kernel-headers-${_kernver} build
+
+	cd ${wrksrc}
+
+	# Headers needed for external modules / dkms
+	install -Dm644 Makefile ${hdrdest}/Makefile
+	install -Dm644 Kbuild ${hdrdest}/Kbuild
+	install -Dm644 kernel/Makefile ${hdrdest}/kernel/Makefile
+	install -Dm644 .config ${hdrdest}/.config
+
+	for file in $(find . -name 'Kconfig*'); do
+		mkdir -p ${hdrdest}/$(dirname $file)
+		install -Dm644 $file ${hdrdest}/${file}
+	done
+	for file in $(find arch/${subarch} scripts -name module.lds -o -name Kbuild.platforms -o -name Platform); do
+		mkdir -p ${hdrdest}/$(dirname $file)
+		install -Dm644 $file ${hdrdest}/${file}
+	done
+
+	mkdir -p ${hdrdest}/include
+	rm -rf ${DESTDIR}/usr/lib/firmware   # provided by linux-firmware
+
+	for i in acpi asm-generic clocksource config crypto drm generated linux vdso \
+		math-emu media net pcmcia scsi sound trace uapi video xen dt-bindings hyperv keys; do
+		[ -d include/$i ] && cp -a include/$i ${hdrdest}/include
+	done
+
+	mkdir -p ${hdrdest}/arch/${arch}
+	cp -a arch/${arch}/include ${hdrdest}/arch/${arch}
+
+	# sign-file is only built when CONFIG_MODULE_SIG=y (disabled in Lunduke config)
+	if [ -x scripts/sign-file ]; then
+		cp scripts/sign-file "${XBPS_WRAPPERDIR}"
+	fi
+
+	if [ "$CROSS_BUILD" ]; then
+		make ${makejobs} ARCH=${subarch} ${_cross} _mrproper_scripts
+		find scripts -name '*.o' -delete
+	fi
+
+	cp Module.symvers ${hdrdest}
+	cp -a scripts ${hdrdest}
+	mkdir -p ${hdrdest}/security/selinux
+	cp -a security/selinux/include ${hdrdest}/security/selinux
+	mkdir -p ${hdrdest}/tools/include
+	cp -a tools/include/tools ${hdrdest}/tools/include
+	cp -a tools/include/uapi ${hdrdest}/tools/include
+	[ -d "arch/${arch}/tools" ] && cp -a "arch/${arch}/tools" "${hdrdest}/arch/${arch}"
+	cp -a kernel/time/timeconst.bc "${hdrdest}/kernel/time"
+	cp -a kernel/bounds.c "${hdrdest}/kernel"
+	mkdir -p "${hdrdest}/arch/x86/entry/syscalls"
+	cp -a arch/x86/entry/syscalls/syscall_32.tbl "${hdrdest}/arch/x86/entry/syscalls"
+
+	mkdir -p ${hdrdest}/arch/${arch}/kernel
+	cp arch/${arch}/Makefile ${hdrdest}/arch/${arch}
+	mkdir -p ${hdrdest}/arch/x86/kernel
+	cp arch/x86/kernel/asm-offsets.s ${hdrdest}/arch/x86/kernel
+
+	# Extra headers commonly needed by out-of-tree drivers
+	for i in bt8xx cx88 saa7134; do
+		mkdir -p ${hdrdest}/drivers/media/pci/${i}
+		cp -a drivers/media/pci/${i}/*.h ${hdrdest}/drivers/media/pci/${i} 2>/dev/null || true
+	done
+	for i in em28xx pwc; do
+		mkdir -p ${hdrdest}/drivers/media/usb/${i}
+		cp -a drivers/media/usb/${i}/*.h ${hdrdest}/drivers/media/usb/${i} 2>/dev/null || true
+	done
+	mkdir -p ${hdrdest}/drivers/media/i2c
+	cp drivers/media/i2c/*.h ${hdrdest}/drivers/media/i2c 2>/dev/null || true
+	mkdir -p ${hdrdest}/drivers/md
+	cp drivers/md/*.h ${hdrdest}/drivers/md 2>/dev/null || true
+	mkdir -p ${hdrdest}/include/linux
+	cp include/linux/inotify.h ${hdrdest}/include/linux 2>/dev/null || true
+	mkdir -p ${hdrdest}/net/mac80211
+	cp net/mac80211/*.h ${hdrdest}/net/mac80211 2>/dev/null || true
+	mkdir -p ${hdrdest}/drivers/media/dvb-frontends
+	cp drivers/media/dvb-frontends/*.h ${hdrdest}/drivers/media/dvb-frontends 2>/dev/null || true
+	mkdir -p ${hdrdest}/drivers/media/tuners
+	cp drivers/media/tuners/*.h ${hdrdest}/drivers/media/tuners 2>/dev/null || true
+	mkdir -p ${hdrdest}/fs/xfs/libxfs ${hdrdest}/mm
+	cp fs/xfs/libxfs/xfs_sb.h ${hdrdest}/fs/xfs/libxfs/ 2>/dev/null || true
+
+	# objtool for dkms on x86_64
+	mkdir -p ${hdrdest}/tools/objtool
+	cp tools/objtool/objtool ${hdrdest}/tools/objtool
+
+	# Extract debug info + compress modules
+	msg_normal "$pkgver: extracting debug info and compressing modules…\n"
+	install -Dm644 vmlinux ${DESTDIR}/usr/lib/debug/boot/vmlinux-${_kernver}
+	(
+		cd ${DESTDIR}
+		export DESTDIR
+		if [ -x "${XBPS_WRAPPERDIR}/sign-file" ]; then
+			export SIGN_FILE="${XBPS_WRAPPERDIR}/sign-file sha512 ${wrksrc}/certs/signing_key.pem ${wrksrc}/certs/signing_key.x509"
+		else
+			# no-op when module signing is disabled (Lunduke config)
+			export SIGN_FILE="true"
+		fi
+		find ./ -name '*.ko' -print0 |
+			xargs -0r -n1 -P ${XBPS_MAKEJOBS} ${FILESDIR}/mv-debug
+	)
+	depmod -b ${DESTDIR}/usr -F System.map ${_kernver}
+	rm -f ${DESTDIR}/lib
+}
+
+linux-lunduke-headers_package() {
+	preserve=yes
+	nostrip=yes
+	noshlibprovides=yes
+	short_desc+=" - headers for 3rd-party modules"
+	if [ "$CROSS_BUILD" ]; then
+		depends="openssl-devel"
+	fi
+	pkg_install() {
+		vmove usr/src
+		vmove usr/lib/modules/${_kernver}/build
+	}
+}
+
+linux-lunduke-dbg_package() {
+	preserve=yes
+	nostrip=yes
+	noverifyrdeps=yes
+	noshlibprovides=yes
+	repository=debug
+	short_desc+=" - debugging symbols"
+	pkg_install() {
+		vmove usr/lib/debug
+		vmove "boot/System.map-${_kernver}"
+	}
+}
