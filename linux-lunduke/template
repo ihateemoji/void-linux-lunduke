@@ -6,7 +6,6 @@ pkgname=linux-lunduke
 version=7.2.6
 revision=1
 short_desc="Lunduke's rust-free Linux kernel and modules (${version})"
-maintainer="Orphaned <orphan@voidlinux.org>"
 license="GPL-2.0-only"
 homepage="https://github.com/BryanLunduke/lunduke-linux-kernel"
 changelog="https://github.com/BryanLunduke/lunduke-linux-kernel"
@@ -14,11 +13,11 @@ changelog="https://github.com/BryanLunduke/lunduke-linux-kernel"
 # Base tarball + stable patch (Void style) + Lunduke's published config
 distfiles="${KERNEL_SITE}/kernel/v${version%%.*}.x/linux-${version%.*}.tar.xz
  ${KERNEL_SITE}/kernel/v${version%%.*}.x/patch-${version}.xz
- https://raw.githubusercontent.com/BryanLunduke/lunduke-linux-kernel/master/configs/lunduke-${version}-lcos7.config>lunduke.config"
+ https://raw.githubusercontent.com/BryanLunduke/lunduke-linux-kernel/master/configs/lunduke-${version}-lcos8.config>lunduke.config"
 skip_extraction="patch-${version}.xz lunduke.config"
 checksum="f9fef3d14c0df53819026f4be74459835c2a0b0dcbf5b5bbd9ea19f0829402b3
  2aef3c30a571ed806c69e90428b229409a43c235aa2540a24593b7e7a8b126cf
- 8c369085b4d05f4add3ec7382e0f43fa562d0644c14c014e2a84cd5cb41a80c6"
+ a5e3a4c46d759be2acddfa14132d213f747752ddafc7704a3671e951dec69d7e"
 
 python_version=3
 
@@ -98,6 +97,11 @@ do_configure() {
 	scripts/config --enable MODULE_SIG_SHA512
 	# Leave MODULE_SIG_ALL off: Void signs in mv-debug after strip.
 	# Leave MODULE_COMPRESS off: Void compresses with zstd in mv-debug.
+    
+	# User namespaces: required for Chromium/Firefox namespace sandbox
+	# (otherwise: "No usable sandbox!" from zygote_host_impl_linux.cc).
+	# Lunduke's published config leaves CONFIG_USER_NS unset.
+	scripts/config --enable USER_NS
 
 	make ARCH=$arch ${_cross} olddefconfig
 }
