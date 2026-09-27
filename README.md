@@ -6,7 +6,7 @@ Lunduke's kernel is a rust-free build of upstream Linux with a desktop/VM-orient
 
 ### What the template does
 
-1. Fetches `linux-7.2.tar.xz` + `patch-7.2.6.xz` from [kernel.org](https://www.kernel.org) (same layout as Void's own kernel packages).
+1. Fetches `linux-X.Y.tar.xz` + `patch-X.Y.Z.xz` from [kernel.org](https://www.kernel.org) (same layout as Void's own kernel packages).
 2. Fetches Lunduke's published config from his [GitHub repo](https://github.com/BryanLunduke/lunduke-linux-kernel) at build time (not vendored).
 3. Forces `CONFIG_LOCALVERSION="-lunduke"` and keeps Rust disabled.
 4. Enables `CONFIG_MODULE_SIG` + `CONFIG_MODULE_SIG_SHA512` so Void's normal `sign-file` / `mv-debug` install path works unchanged.
