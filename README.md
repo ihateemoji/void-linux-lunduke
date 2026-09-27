@@ -37,7 +37,7 @@ See the [void-packages README](https://github.com/void-linux/void-packages#readm
 
    ```sh
    cd void-linux-lunduke
-   cp -r linux-lunduke /path/to/void-packages/srcpkgs/
+   cp -r * /path/to/void-packages/srcpkgs/
    ```
 
 3. Build:
