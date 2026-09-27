@@ -83,7 +83,7 @@ do_configure() {
 		msg_error "Missing Lunduke config (expected $cfg)\n"
 	fi
 
-	msg_normal "Using Lunduke's rust-free config (lcos7) from upstream repo.\n"
+	msg_normal "Using Lunduke's rust-free config from upstream repo.\n"
 	cp -f "$cfg" .config
 
 	# Keep Lunduke ABI and explicit no-Rust policy
