@@ -10,10 +10,13 @@ license="GPL-2.0-only"
 homepage="https://github.com/BryanLunduke/lunduke-linux-kernel"
 changelog="https://github.com/BryanLunduke/lunduke-linux-kernel"
 
+_lcos_ver=lcos8                                          # config flavour (lcos8, lcos7, …)
+_config_commit=ccf451ab5b7ac4d194dfd8bb400a71ec1da9af24  # commit that introduced/updated this config
+
 # Base tarball + stable patch (Void style) + Lunduke's published config
 distfiles="${KERNEL_SITE}/kernel/v${version%%.*}.x/linux-${version%.*}.tar.xz
  ${KERNEL_SITE}/kernel/v${version%%.*}.x/patch-${version}.xz
- https://raw.githubusercontent.com/BryanLunduke/lunduke-linux-kernel/master/configs/lunduke-${version}-lcos8.config>lunduke.config"
+ https://raw.githubusercontent.com/BryanLunduke/lunduke-linux-kernel/${_config_commit}/configs/lunduke-${version}-${_lcos_ver}.config>lunduke.config"
 skip_extraction="patch-${version}.xz lunduke.config"
 checksum="f9fef3d14c0df53819026f4be74459835c2a0b0dcbf5b5bbd9ea19f0829402b3
  2aef3c30a571ed806c69e90428b229409a43c235aa2540a24593b7e7a8b126cf
