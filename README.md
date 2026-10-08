@@ -10,8 +10,7 @@ Lunduke's kernel is a rust-free build of upstream Linux with a desktop/VM-orient
 2. Fetches Lunduke's published config from his [GitHub repo](https://github.com/BryanLunduke/lunduke-linux-kernel) at build time (not vendored).
 3. Forces `CONFIG_LOCALVERSION="-lunduke"` and keeps Rust disabled.
 4. Enables `CONFIG_MODULE_SIG` + `CONFIG_MODULE_SIG_SHA512` so Void's normal `sign-file` / `mv-debug` install path works unchanged.
-5. Enables `CONFIG_USER_NS` so Chromium/Firefox can use the namespace sandbox (Lunduke's config leaves this off, which causes `No usable sandbox!`).
-6. Installs kernel, modules, headers, and debug symbols the same way official Void kernels do.
+5. Installs kernel, modules, headers, and debug symbols the same way official Void kernels do.
 
 ### Prerequisites
 

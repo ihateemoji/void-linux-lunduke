@@ -4,14 +4,14 @@
 # sign-file / mv-debug path works unchanged.
 pkgname=linux-lunduke
 version=7.2.6
-revision=1
+revision=2
 short_desc="Lunduke's rust-free Linux kernel and modules (${version})"
 license="GPL-2.0-only"
 homepage="https://github.com/BryanLunduke/lunduke-linux-kernel"
 changelog="https://github.com/BryanLunduke/lunduke-linux-kernel"
 
-_lcos_ver=lcos8                                          # config flavour (lcos8, lcos7, …)
-_config_commit=ccf451ab5b7ac4d194dfd8bb400a71ec1da9af24  # commit that introduced/updated this config
+_lcos_ver=lcos16                                         # config flavour (lcos16, lcos15, …)
+_config_commit=227b713655e0b7baa8935c3f3888d58acdbc10b3  # commit that introduced/updated this config
 
 # Base tarball + stable patch (Void style) + Lunduke's published config
 distfiles="${KERNEL_SITE}/kernel/v${version%%.*}.x/linux-${version%.*}.tar.xz
@@ -20,7 +20,7 @@ distfiles="${KERNEL_SITE}/kernel/v${version%%.*}.x/linux-${version%.*}.tar.xz
 skip_extraction="patch-${version}.xz lunduke.config"
 checksum="f9fef3d14c0df53819026f4be74459835c2a0b0dcbf5b5bbd9ea19f0829402b3
  2aef3c30a571ed806c69e90428b229409a43c235aa2540a24593b7e7a8b126cf
- a5e3a4c46d759be2acddfa14132d213f747752ddafc7704a3671e951dec69d7e"
+ b8ec0bed0da2ea79a2254d0f138fe09599e059853e9e536920eea1ae4424323a"
 
 python_version=3
 
@@ -100,11 +100,9 @@ do_configure() {
 	scripts/config --enable MODULE_SIG_SHA512
 	# Leave MODULE_SIG_ALL off: Void signs in mv-debug after strip.
 	# Leave MODULE_COMPRESS off: Void compresses with zstd in mv-debug.
-    
-	# User namespaces: required for Chromium/Firefox namespace sandbox
-	# (otherwise: "No usable sandbox!" from zygote_host_impl_linux.cc).
-	# Lunduke's published config leaves CONFIG_USER_NS unset.
-	scripts/config --enable USER_NS
+
+	# CONFIG_USER_NS is already y upstream (lcos12, still set in lcos16).
+	# Do not force it; Chromium/Firefox namespace sandbox works as published.
 
 	make ARCH=$arch ${_cross} olddefconfig
 }
