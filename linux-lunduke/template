@@ -4,14 +4,14 @@
 # sign-file / mv-debug path works unchanged.
 pkgname=linux-lunduke
 version=7.2.6
-revision=6
+revision=7
 short_desc="Lunduke's rust-free Linux kernel and modules (${version})"
 license="GPL-2.0-only"
 homepage="https://github.com/BryanLunduke/lunduke-linux-kernel"
 changelog="https://github.com/BryanLunduke/lunduke-linux-kernel"
 
-_lcos_ver=lcos27                                         # config flavour (lcos20, lcos19, …)
-_config_commit=bb839085c26fa04bd2e6522c3a989c9dcb775702  # commit that introduced/updated this config
+_lcos_ver=lcos28                                         # config flavour (lcos20, lcos19, …)
+_config_commit=e96ae9fd7b783200beef42f56cf8d55e882c5aa9  # commit that introduced/updated this config
 
 # Base tarball + stable patch (Void style) + Lunduke's published config
 distfiles="${KERNEL_SITE}/kernel/v${version%%.*}.x/linux-${version%.*}.tar.xz
@@ -20,7 +20,7 @@ distfiles="${KERNEL_SITE}/kernel/v${version%%.*}.x/linux-${version%.*}.tar.xz
 skip_extraction="patch-${version}.xz lunduke.config"
 checksum="f9fef3d14c0df53819026f4be74459835c2a0b0dcbf5b5bbd9ea19f0829402b3
  2aef3c30a571ed806c69e90428b229409a43c235aa2540a24593b7e7a8b126cf
- 249b2cc15c9a7a7bc0c46b965d437db3cd7e45994166c95b9bed419752e7df77"
+ 4725e6c4284d9358c08136b0be7c93f68e8e3306a980d0ff418149a56524adcc"
 
 python_version=3
 
